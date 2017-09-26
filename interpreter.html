@@ -1,0 +1,263 @@
+<html>
+<style>
+    /*
+        TODO: Generally make it look better
+        TODO: Make sure it looks right on iGEM wiki
+        TODO: Ideally have it look right on mobile
+        TODO: Possibly IE 9 support
+    */
+
+    label span {
+        margin: 5px;
+        display: inline-block;
+    }
+    input {
+        border-radius: 6px;
+        background: #eceff1;
+        outline: none;
+        cursor: pointer;
+        border: 2px solid #eceff1;
+        transition: border-color .15s ease-in-out;
+        padding: 4px;
+    }
+    input:active, input:focus {
+        border-color: #52c7b8;
+    }
+    #fluorometerinput {
+        padding: 50px 20px;
+        font-size: 30px;
+        font-weight: bold;
+        text-align: center;
+        width: 100%;
+    }
+    #fluorometerinput:not(:focus) {
+        border-color: #f03;
+        background-color: #fee;
+    }
+    #fluorometerinput::placeholder {
+        transition: 0.2s color ease;
+        color: #000;
+    }
+    #fluorometerinput:focus::placeholder {
+        color: #eceff1;
+    }
+    #fluorometer_grid {
+        display: table;
+        border-spacing: 10px;
+        margin: 0 -10px;
+    }
+    #fluorometer_grid > div {
+        display: table-cell;
+        vertical-align: top;
+        border: 3px solid #cfd8dc;
+        border-radius: 10px;
+        width: 33%;
+    }
+    #fluorometer_grid > div > div {
+        padding: 25px;
+    }
+</style>
+<input autofocus id="fluorometerinput" type="text" placeholder="Click here before plugging in the fluorometer" />
+<div id="fluorometer_grid">
+    <div>
+        <div>
+            <label><input type="radio" name="mode" onchange="updateMode()" value="t">Transmission</label>
+            <label><input type="radio" name="mode" onchange="updateMode()" value="od">Optical density</label>
+            <label><input type="radio" name="mode" onchange="updateMode()" value="raw" checked>Fluorescence</label>
+            <br><br><label><span>Readings for blank: </span><input id="blankreadingslength" type="number" value="5"/></label>
+            <!-- TODO: Instructions? -->
+            <p>I feel that this could be potentially a good place for instructions, or at least a key of the keyboard shortcuts e.g.</p>
+            <p><b>b</b>: record a blank for transmittance/OD</p>
+        </div>
+    </div>
+    <div>
+        <div>
+            <h3>Last reading:</h3>
+            <h1 id="lastReadings">Waiting for fluorometer input</h1>
+            <h3>Average of last 5: <span id="lastFiveReadings">NA</span></h3>
+            <h3>Average of last 10: <span id="lastTenReadings">NA</span></h3>
+        </div>
+    </div>
+    <div>
+        <div>
+            <canvas id="fluorometer_chart" width="400" height="200"></canvas>
+            <p><a onclick="downloadData(this)" href="#">Download data (CSV)</a></p>
+        </div>
+    </div>
+</div>
+
+<!-- TODO: Store on iGEM servers -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js" integrity="sha256-SiHXR50l06UwJvHhFY4e5vzwq75vEHH+8fFNpkXePr0=" crossorigin="anonymous"></script>
+<script type="text/javascript">
+    var input = document.getElementById('fluorometerinput'),
+        data = [],
+        marking = false,
+        blanking = false,
+        blankreadings = [],
+        blank,
+        mode = document.querySelector('input[name=mode]:checked').value;
+
+    // Setup input listening
+    input.onblur = function() {
+        input.value = '';
+    }
+    input.oninput = function(e) {
+        input.value = input.value.replace(/\D/g,'');
+        switch (e.data) {
+            case ',':
+                updateLive();
+                break;
+            case 'm':
+            case 'r':
+                // TODO: Some indication when marking i.e. recording
+                marking = !marking;
+                break;
+            case 'b':
+                recordBlank();
+                break;
+            case 't':
+                document.querySelector('input[name=mode][value=t]').checked = true;
+                updateMode();
+                break;
+            case 'o':
+                document.querySelector('input[name=mode][value=od]').checked = true;
+                updateMode();
+                break;
+            case 'f':
+                document.querySelector('input[name=mode][value=raw]').checked = true;
+                updateMode();
+                break;
+        }
+    };
+
+    // Setup chart
+    Chart.defaults.global.elements.line.fill = false;
+    var graph = new Chart(document.getElementById('fluorometer_chart').getContext('2d'), {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: 'Raw readings',
+                data: []
+            }]
+        },
+        options: {}
+    });
+
+    function updateMode() {
+        mode = document.querySelector('input[name=mode]:checked').value;
+        updateChart();
+    }
+
+    function updateChart() {
+        graph.data.datasets[0].data = data.slice(-60).map(function(x) {
+            return {x: (x[0] - data[0][0])/1000, y: x[1] }
+        });
+        graph.update(0);
+    }
+
+    // TODO: Download only marked data
+    function downloadData(link) {
+        var csv = "data:text/csv;charset=utf-8,";
+        // Headers
+        csv += 'Timestamp,Reading,Marked' + '\n';
+        data.forEach(function(datapoint, index){
+            csv += datapoint.join(',') + '\n';
+        });
+        csv = csv.replace(/\n$/, '');
+
+        // Set the link clicked to the CSV file created and give it sensible file name
+        link.setAttribute('href', encodeURI(csv));
+        link.setAttribute('download', 'Fluorometer_data_' + new Date().toLocaleDateString().replace(/\//g, '') + '.csv');
+    }
+
+    function showOuput(output) {
+        document.getElementById('lastReadings').innerHTML = output[0];
+        document.getElementById('lastFiveReadings').innerHTML = output[1];
+        document.getElementById('lastTenReadings').innerHTML = output[2];
+    }
+
+    function mean(arr) {
+        return arr.reduce(function(a,b) {return a+b}) / arr.length;
+    }
+
+    function updateLive() {
+        last = Number(input.value);
+        data.push([new Date().getTime(), last, marking]);
+        input.value = '';
+
+        avgLastFive = mean(data.slice(-5).map(function(x) { return x[1] }));
+        avgLastTen = mean(data.slice(-10).map(function(x) { return x[1] }));
+
+        if (blanking) {
+            handleBlankReading(last);
+        } else {
+            var output = [last.toFixed(1), avgLastFive.toFixed(1), avgLastTen.toFixed(1)];
+            switch (mode) {
+                case 't':
+                    if (typeof blank !== 'number') {
+                        output = [
+                            'Raw: ' + last + '<br>Press \'b\' to blank first',
+                            'NA',
+                            'NA'
+                        ];
+                    } else {
+                        output = [
+                            (100 * last / blank).toFixed(1) + '%',
+                            (100 * avgLastFive / blank).toFixed(1) + '%',
+                            (100 * avgLastTen / blank).toFixed(1) + '%'
+                        ];
+                    }
+                    break;
+                case 'od':
+                    if (typeof blank !== 'number') {
+                        output = [
+                            'Press \'b\' to blank first',
+                            'NA',
+                            'NA'
+                        ];
+                    } else {
+                        output = [
+                            (-Math.log(last / blank) * Math.LOG10E).toFixed(4),
+                            (-Math.log(avgLastFive / blank) * Math.LOG10E).toFixed(4),
+                            (-Math.log(avgLastTen / blank) * Math.LOG10E).toFixed(4)
+                        ];
+                    }
+                    break;
+                case 'raw':
+                    break;
+                default:
+                    console.error('Invalid mode: ' + mode);
+            }
+
+            showOuput(output);
+            updateChart();
+        }
+    }
+
+    function recordBlank() {
+        blankreadings = [];
+        blanking = true;
+
+        showOuput([
+            'Blanking in progress',
+            'NA',
+            'NA'
+        ]);
+    }
+
+    function handleBlankReading(reading) {
+        blankreadings.push(reading);
+
+        showOuput([
+            'Blanking in progress (' + blankreadings.length + '/' + document.getElementById('blankreadingslength').value + '): ' + reading,
+            mean(blankreadings.slice(-5)).toFixed(1) + ' (raw)',
+            mean(blankreadings.slice(-10)).toFixed(1) + ' (raw)'
+        ]);
+
+        if (blankreadings.length >= document.getElementById('blankreadingslength').value) {
+            blank = mean(blankreadings);
+            blanking = false;
+        }
+    }
+</script>
+</html>
