@@ -1,16 +1,6 @@
 <html>
+<script type="text/javascript" src="http://2017.igem.org/wiki/index.php?title=Template:CLSB-UK%20Chart.js&action=raw&ctype=text/javascript"></script>
 <style>
-    /*
-        TODO: Generally make it look better
-        TODO: Make sure it looks right on iGEM wiki
-        TODO: Ideally have it look right on mobile
-        TODO: Possibly IE 9 support
-    */
-
-    label span {
-        margin: 5px;
-        display: inline-block;
-    }
     input {
         border-radius: 6px;
         background: #eceff1;
@@ -19,6 +9,7 @@
         border: 2px solid #eceff1;
         transition: border-color .15s ease-in-out;
         padding: 4px;
+        margin-top: 5px;
     }
     input:active, input:focus {
         border-color: #52c7b8;
@@ -29,6 +20,7 @@
         font-weight: bold;
         text-align: center;
         width: 100%;
+        box-sizing: border-box;
     }
     #fluorometerinput:not(:focus) {
         border-color: #f03;
@@ -42,7 +34,6 @@
         color: #eceff1;
     }
     #fluorometer_grid {
-        display: table;
         border-spacing: 10px;
         margin: 0 -10px;
     }
@@ -56,24 +47,41 @@
     #fluorometer_grid > div > div {
         padding: 25px;
     }
+    @media (max-width: 1200px) {
+        #fluorometer_grid {
+            margin: 0 6px 0 0;
+        }
+        #fluorometer_grid > div {
+            display: block;
+            width: 100%;
+            margin-bottom: 6.5px;
+        }
+    }
 </style>
 <input autofocus id="fluorometerinput" type="text" placeholder="Click here before plugging in the fluorometer" />
 <div id="fluorometer_grid">
     <div>
         <div>
-            <label><input type="radio" name="mode" onchange="updateMode()" value="t">Transmission</label>
-            <label><input type="radio" name="mode" onchange="updateMode()" value="od">Optical density</label>
-            <label><input type="radio" name="mode" onchange="updateMode()" value="raw" checked>Fluorescence</label>
-            <br><br><label><span>Readings for blank: </span><input id="blankreadingslength" type="number" value="5"/></label>
-            <!-- TODO: Instructions? -->
-            <p>I feel that this could be potentially a good place for instructions, or at least a key of the keyboard shortcuts e.g.</p>
-            <p><b>b</b>: record a blank for transmittance/OD</p>
+            <p>
+                <b>Keyboard shortcuts:</b><br>
+                <b>r</b>: record data<br>
+                <b>b</b>: record a blank for transmittance/OD<br>
+                <b>t</b>: transmittance mode<br>
+                <b>o</b>: optical density mode<br>
+                <b>f</b>: fluorescence mode
+            </p>
+
+            <br><label><input style="margin-left: 0" type="radio" name="mode" onchange="updateMode()" value="t">Transmittance</label>
+            <label><input type="radio" name="mode" onchange="updateMode()" value="od">Optical density</label><br>
+            <label><input style="margin-left: 0" type="radio" name="mode" onchange="updateMode()" value="raw" checked>Fluorescence</label>
+            <br><label><span>Readings for blank: </span><input id="blankreadingslength" type="number" value="5"/></label>
         </div>
     </div>
     <div>
         <div>
+            <h3 id="recording_indicator" style="color: red; float:right; display: none">⚫ REC #<span></span></h3>
             <h3>Last reading:</h3>
-            <h1 id="lastReadings">Waiting for fluorometer input</h1>
+            <h1 id="lastReadings" style="width: 250px;padding: 0;">NA</h1>
             <h3>Average of last 5: <span id="lastFiveReadings">NA</span></h3>
             <h3>Average of last 10: <span id="lastTenReadings">NA</span></h3>
         </div>
@@ -81,17 +89,16 @@
     <div>
         <div>
             <canvas id="fluorometer_chart" width="400" height="200"></canvas>
-            <p><a onclick="downloadData(this)" href="#">Download data (CSV)</a></p>
+            <p>Download <a onclick="downloadData(this, true)" href="#">recorded data</a> or <a onclick="downloadData(this, false)" href="#">all data</a> (CSV)</p>
         </div>
     </div>
 </div>
 
-<!-- TODO: Store on iGEM servers -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.6.0/Chart.min.js" integrity="sha256-SiHXR50l06UwJvHhFY4e5vzwq75vEHH+8fFNpkXePr0=" crossorigin="anonymous"></script>
 <script type="text/javascript">
     var input = document.getElementById('fluorometerinput'),
         data = [],
-        marking = false,
+        recording = false,
+        recording_no = 0,
         blanking = false,
         blankreadings = [],
         blank,
@@ -109,8 +116,15 @@
                 break;
             case 'm':
             case 'r':
-                // TODO: Some indication when marking i.e. recording
-                marking = !marking;
+                if(!recording) {
+                    recording_no++;
+                    recording = true;
+                    document.getElementById('recording_indicator').style.display = 'block';
+                    document.getElementById('recording_indicator').children[0].innerHTML = recording_no;
+                } else {
+                    recording = false;
+                    document.getElementById('recording_indicator').style.display = 'none';
+                }
                 break;
             case 'b':
                 recordBlank();
@@ -155,13 +169,17 @@
         graph.update(0);
     }
 
-    // TODO: Download only marked data
-    function downloadData(link) {
+    function downloadData(link, onlyRecorded) {
         var csv = "data:text/csv;charset=utf-8,";
         // Headers
-        csv += 'Timestamp,Reading,Marked' + '\n';
+        csv += 'Timestamp,Reading,Recording #' + '\n';
+
         data.forEach(function(datapoint, index){
-            csv += datapoint.join(',') + '\n';
+            if(!onlyRecorded) {
+                csv += datapoint.join(',') + '\n';
+            } else if(datapoint[2] > 0) {
+                csv += datapoint.join(',') + '\n';
+            }
         });
         csv = csv.replace(/\n$/, '');
 
@@ -182,7 +200,7 @@
 
     function updateLive() {
         last = Number(input.value);
-        data.push([new Date().getTime(), last, marking]);
+        data.push([new Date().getTime(), last, (recording ? recording_no : -1)]);
         input.value = '';
 
         avgLastFive = mean(data.slice(-5).map(function(x) { return x[1] }));
@@ -191,7 +209,7 @@
         if (blanking) {
             handleBlankReading(last);
         } else {
-            var output = [last.toFixed(1), avgLastFive.toFixed(1), avgLastTen.toFixed(1)];
+            var output = [last.toFixed(0), avgLastFive.toFixed(1), avgLastTen.toFixed(1)];
             switch (mode) {
                 case 't':
                     if (typeof blank !== 'number') {
