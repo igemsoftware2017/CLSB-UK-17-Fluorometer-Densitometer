@@ -47,9 +47,9 @@ To install the code, use the Arduino IDE. Ensure you've set the board type to Ar
 
 ## Structure
 
-`digispark.cpp` is the code to put on our fluorometer
-`interpreter.html` is the code to run on the device it's plugged into
-`denverbiolabs.cpp` is the code from [Denver Biolabs 2014](https://github.com/denverbiolabs/od-f) with our bugfixes
+* `digispark.cpp` is the code to put on our fluorometer
+* `interpreter.html` is the code to run on the device it's plugged into
+* `denverbiolabs.cpp` is the code from [Denver Biolabs 2014](https://github.com/denverbiolabs/od-f) with our bugfixes
 
 ## Contributing
 
