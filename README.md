@@ -1,4 +1,4 @@
-# Combined fluorometer and densitometer
+# CLSB-UK: Combined fluorometer and densitometer
 For our proof of concept, we need to prove the economic viability of a screening programme with our toehold switches. Barriers include the high cost and immobility of most fluorometers. Building upon previous iGEM designs, we created a cheap, portable and effective fluorometer.
 
 Our combined fluorometer and densitometer costs just $6 in parts, using low-cost components and a small 3D-printed cuvette holder. To minimize costs, we didn’t use a display and instead built software to interpret the results. It gives a live readout, processes results and acts as a datalogger, exporting results to a spreadsheet for further analysis. The software can be run on any computer, tablet or even smartphone.
